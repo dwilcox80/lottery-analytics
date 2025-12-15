@@ -1,4 +1,5 @@
 from django.db import models
+from .managers import DrawAnalyticsQuerySet
 
 
 class BaseDraw(models.Model):
@@ -15,8 +16,18 @@ class BaseDraw(models.Model):
         abstract = True
         ordering = ["-draw_date"]
 
+    def get_main_balls(self):
+        return [
+            self.ball_1,
+            self.ball_2,
+            self.ball_3,
+            self.ball_4,
+            self.ball_5,
+        ]
+
 
 class PowerBallDraw(BaseDraw):
+    objects = DrawAnalyticsQuerySet.as_manager()
     multiplier = models.PositiveSmallIntegerField(null=True, blank=True)
 
     class Meta:
@@ -25,6 +36,7 @@ class PowerBallDraw(BaseDraw):
 
 
 class MegaMillionsDraw(BaseDraw):
+    objects = DrawAnalyticsQuerySet.as_manager()
     megaplier = models.PositiveSmallIntegerField(null=True, blank=True)
 
     class Meta:

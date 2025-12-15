@@ -5,30 +5,20 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .models import MegaMillionsDraw, PowerBallDraw
-from .analytics import day_of_the_month_frequency, weekday_frequency
 
 
 class LotteryAnalyticsView(APIView):
     authentication_classes = [SessionAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self, lottery):
-        if lottery == 'powerball':
-            return PowerBallDraw.objects.all()
-        elif lottery == 'megamillions':
-            return MegaMillionsDraw.objects.all()
-        else:
-            raise ValueError("Invalid lottery")
-
     def get(self, request):
         lottery = request.query_params.get('lottery')
 
-        if lottery not in ['megamillions', 'powerball']:
+        if lottery == 'megamillions':
+            data = MegaMillionsDraw.objects.with_joint_counts()
+        elif lottery == 'powerball':
+            data = PowerBallDraw.objects.with_joint_counts()
+        else:
             return Response({'error': 'lottery must be megamillions or powerball'}, status=400)
 
-        queryset = self.get_queryset(lottery)
-
-        return Response({
-            "weekday": weekday_frequency(queryset),
-            "day_of_month": day_of_the_month_frequency(queryset),
-        })
+        return Response(data)

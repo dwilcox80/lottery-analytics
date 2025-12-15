@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     # Local Apps
-    'user.apps.UserConfig',
+    'accounts_app.apps.AccountsAppConfig',
     'lottery.apps.LotteryConfig',
 ]
 

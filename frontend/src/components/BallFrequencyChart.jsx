@@ -16,23 +16,53 @@ ChartJS.register(
     Legend
 );
 
-export default function BallFrequencyChar({ data, title, }) {
-    const labels = Object.keys(data).sort((a, b) => a - b);
+const WEEKDAYS = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+];
+
+export default function BallFrequencyChart({ data, selectedBall }) {
+    if (!data?.weekday) {
+        return <div style={{ height: 300 }}>Loading...</div>
+    }
+
+    const ballKey = String(selectedBall);
+
+    const values = WEEKDAYS.map(
+        (day) => Number(data.weekday?.[day]?.[ballKey] ?? 0)
+    )
 
     const chartData = {
-        labels,
+        labels: WEEKDAYS,
         datasets: [
             {
-                label: "Frequency",
-                data: labels.map((k) => data[k]),
+                label: `Ball ${ballKey} frequency`,
+                data: values,
+                backgroundColor: "rgba(128, 0, 128, 0.6)",
             },
         ],
     };
 
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: { precision: 0 },
+            },
+        },
+    };
+
     return(
-        <div>
+        <div style={{ height: "300px" }}>
             <h3>{title}</h3>
-            <Bar data={chartData} />
+            <Bar data={chartData} options={options} />
         </div>
     );
 }

@@ -1,56 +1,39 @@
 import { useEffect, useState } from "react";
-import api from "../api/axios";
-import LotterySelector from "../components/LotterySelector";
-import DaySelector from "../components/DaySelector";
-import BallFrequencyChart from "../components/BallFrequencyChart";
+import { fetchAnalytics } from "../api/axios.js";
 
 export default function Analytics() {
-    const [lottery, setLottery] = useState("powerball");
-    const [weekday, setWeekday] = useState("2");  // Monday
-    const [dayOfMonth, setDayOfMonth] = useState("1");
-    const [data, setData] = useState(null);
+  const [lottery, setLottery] = useState("powerball");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-    useEffect(() => {
-        api
-            .get(`lottery/analytics/?lottery=${lottery}`)
-            .then((res) => setData(res.data));
-    }, [lottery]);
+  useEffect(() => {
+    setLoading(true);
+    setError("");
 
-    if (!data) return <p>Loading...</p>;
+    fetchAnalytics(lottery)
+      .then((res) => setData(res.data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [lottery]);
 
-    const weekdayData = data.weekday[weekday] || {};
-    const dayData = data.day_of_month[dayOfMonth] || {};
+  return (
+    <div>
+      <h1>Lottery Analytics</h1>
 
-    // Cross-reference (intersection)
-    const combined = {};
-    for (const ball in weekdayData) {
-        if (dayData[ball]) {
-            combined[ball] = weekdayData[ball] + dayData[ball];
-        }
-    }
+      <select value={lottery} onChange={(e) => setLottery(e.target.value)}>
+        <option value="powerball">Powerball</option>
+        <option value="megamillions">Mega Millions</option>
+      </select>
 
-    return (
-        <div>
-            <h2>Lottery Analytics</h2>
+      {loading && <div>Loading…</div>}
+      {error && <div>Error: {error}</div>}
 
-            <LotterySelector value={lottery} onChange={setLottery} />
-
-            <DaySelector
-                type="weekday"
-                value={weekday}
-                onChange={setWeekday}
-            />
-
-            <DaySelector
-                type="day"
-                value={dayOfMonth}
-                onChange={setDayOfMonth}
-            />
-
-            <BallFrequencyChart
-                data={combined}
-                title="Ball Frequency (Cross-Referenced)"
-            />
-        </div>
-    );
+      {data && (
+        <pre style={{ fontSize: "0.8rem" }}>
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
 }

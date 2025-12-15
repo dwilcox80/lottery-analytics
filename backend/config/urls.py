@@ -22,7 +22,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/token/', TokenObtainPairView.as_view()),
     path('api/token/refresh/', TokenRefreshView.as_view()),
-    path('api/auth/', include('user.urls')),
+    path('api/auth/', include('accounts_app.urls')),
     path('api-auth/', include('rest_framework.urls')),
     path('api/lottery/', include('lottery.urls')),
 ]

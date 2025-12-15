@@ -3,13 +3,15 @@ import datetime
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 
-from ..models import PowerBallDraw
+from ..models import PowerBallDraw, MegaMillionsDraw
 
 
 class AnalyticsAPITests(APITestCase):
     def setUp(self):
-        # Create a user for authentication
+        cache.clear()
+        # Create a accounts_app for authentication
         User = get_user_model()
         self.user = User.objects.create_user(
             username="testuser",

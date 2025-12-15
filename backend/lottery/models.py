@@ -29,6 +29,9 @@ class BaseDraw(models.Model):
             self.ball_5,
         ]
 
+    def __str__(self):
+        return f"{self.__class__.__name__} {self.draw_date}"
+
 
 class PowerBallDraw(BaseDraw):
     objects = DrawAnalyticsQuerySet.as_manager()

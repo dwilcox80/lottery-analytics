@@ -1,3 +1,4 @@
+# lottery/models.py
 from django.db import models
 from .managers import DrawAnalyticsQuerySet
 
@@ -11,6 +12,9 @@ class BaseDraw(models.Model):
     ball_5 = models.PositiveSmallIntegerField()
     bonus_ball = models.PositiveSmallIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Default; subclasses must override
+    BALL_RANGE = range(1, 1)
 
     class Meta:
         abstract = True
@@ -28,6 +32,10 @@ class BaseDraw(models.Model):
 
 class PowerBallDraw(BaseDraw):
     objects = DrawAnalyticsQuerySet.as_manager()
+
+    # Powerball: main balls 1–69
+    BALL_RANGE = range(1, 70)
+
     multiplier = models.PositiveSmallIntegerField(null=True, blank=True)
 
     class Meta:
@@ -37,9 +45,12 @@ class PowerBallDraw(BaseDraw):
 
 class MegaMillionsDraw(BaseDraw):
     objects = DrawAnalyticsQuerySet.as_manager()
+
+    # Mega Millions: main balls 1–70
+    BALL_RANGE = range(1, 71)
+
     megaplier = models.PositiveSmallIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Mega Millions Draw"
         verbose_name_plural = "Mega Millions Draws"
-

@@ -1,6 +1,5 @@
 # backend/lottery/tests/test_api.py
 import datetime
-from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
@@ -13,7 +12,7 @@ class AnalyticsAPITests(APITestCase):
         # Create a user for authentication
         User = get_user_model()
         self.user = User.objects.create_user(
-            username="tester",
+            username="testuser",
             password="password123"
         )
 
@@ -31,7 +30,7 @@ class AnalyticsAPITests(APITestCase):
         )
 
     def test_powerball_analytics_endpoint(self):
-        url = "/lottery/analytics/?lottery=powerball"
+        url = "/api/lottery/analytics/?lottery=powerball"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
@@ -47,7 +46,7 @@ class AnalyticsAPITests(APITestCase):
         self.assertEqual(data["weekday"]["Monday"]["1"], 1)
 
     def test_invalid_lottery(self):
-        url = "/lottery/analytics/?lottery=invalid"
+        url = "/api/lottery/analytics/?lottery=invalid"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 400)

@@ -1,68 +1,67 @@
-import {
-    Chart as ChartJS,
-    BarElement,
-    CategoryScale,
-    LinearScale,
-    Tooltip,
-    Legend,
-} from "chart.js";
 import { Bar } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import chroma from "chroma-js";
 
-ChartJS.register(
-    BarElement,
-    CategoryScale,
-    LinearScale,
-    Tooltip,
-    Legend
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const WEEKDAYS = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-];
+export default function BallFrequencyChart({ weekdayData, title }) {
+  if (!weekdayData) return null;
 
-export default function BallFrequencyChart({ data, selectedBall }) {
-    if (!data?.weekday) {
-        return <div style={{ height: 300 }}>Loading...</div>
+  const rows = [];
+
+  for (const balls of Object.values(weekdayData)) {
+    for (const [ball, count] of Object.entries(balls)) {
+      rows.push({ ball: Number(ball), count });
     }
+  }
 
-    const ballKey = String(selectedBall);
+  rows.sort((a, b) => a.ball - b.ball);
 
-    const values = WEEKDAYS.map(
-        (day) => Number(data.weekday?.[day]?.[ballKey] ?? 0)
-    )
+  const labels = rows.map((r) => r.ball);
+  const counts = rows.map((r) => r.count);
 
-    const chartData = {
-        labels: WEEKDAYS,
-        datasets: [
-            {
-                label: `Ball ${ballKey} frequency`,
-                data: values,
-                backgroundColor: "rgba(128, 0, 128, 0.6)",
-            },
-        ],
-    };
+  if (labels.length === 0) {
+    return <div>No data for selected filters</div>;
+  }
 
-    const options = {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: { precision: 0 },
-            },
+  const max = Math.max(...counts, 1);
+  const colorScale = chroma.scale(["#e0f2fe", "#0284c7"]).domain([0, max]);
+
+  const chartData = {
+    labels,
+    datasets: [
+      {
+        label: title,
+        data: counts,
+        backgroundColor: counts.map((c) => colorScale(c).hex()),
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    plugins: {
+      title: { display: true, text: title },
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => `Ball ${ctx.label}: ${ctx.raw}`,
         },
-    };
+      },
+    },
+    scales: {
+      x: { title: { display: true, text: "Ball Number" } },
+      y: { title: { display: true, text: "Count" }, beginAtZero: true },
+    },
+  };
 
-    return(
-        <div style={{ height: "300px" }}>
-            <h3>{title}</h3>
-            <Bar data={chartData} options={options} />
-        </div>
-    );
+  return <Bar data={chartData} options={options} />;
 }

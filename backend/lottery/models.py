@@ -15,6 +15,7 @@ class BaseDraw(models.Model):
 
     # Default; subclasses must override
     BALL_RANGE = range(1, 1)
+    BONUS_BALL_RANGE = range(1, 1)
 
     class Meta:
         abstract = True
@@ -38,6 +39,8 @@ class PowerBallDraw(BaseDraw):
 
     # Powerball: main balls 1–69
     BALL_RANGE = range(1, 70)
+    # Powerball: bonus balls 1–26
+    BONUS_BALL_RANGE = range(1, 27)
 
     multiplier = models.PositiveSmallIntegerField(null=True, blank=True)
 
@@ -51,6 +54,8 @@ class MegaMillionsDraw(BaseDraw):
 
     # Mega Millions: main balls 1–70
     BALL_RANGE = range(1, 71)
+    # Mega Millions: mega balls 1-24
+    BONUS_BALL_RANGE = range(1, 25)
 
     megaplier = models.PositiveSmallIntegerField(null=True, blank=True)
 

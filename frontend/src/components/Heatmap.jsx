@@ -1,66 +1,139 @@
-import chroma from "chroma-js"
+import { Chart } from "react-chartjs-2";
+import chroma from "chroma-js";
 
-const WEEKDAYS = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-];
+import {
+  Chart as ChartJS,
+  LinearScale,
+  CategoryScale,
+  Tooltip,
+  Legend,
+  Title,
+} from "chart.js";
+import { MatrixController, MatrixElement } from "chartjs-chart-matrix";
 
-const DAYS = Array.from({length: 31} , (_, i) => String(i + 1));
+// Register Chart.js components
+ChartJS.register(
+  MatrixController,
+  MatrixElement,
+  LinearScale,
+  CategoryScale,
+  Tooltip,
+  Legend,
+  Title
+);
 
-const colorScale = chroma.scale(["#ffffff", "#6a0dad"]).mode("lab");
+/**
+ * Heatmap: Ball (Y) × Day-of-Month (X)
+ *
+ * Expects:
+ *   heatmap[ball][day] = count
+ */
+export default function Heatmap({ heatmap, title, yLabel }) {
+  if (!heatmap) return null;
 
-export default function Heatmap({data, selectedBall}) {
-    if (!data || !data.joint || !selectedBall) return null;
+  const balls = Object.keys(heatmap)
+    .map((b) => Number(b))
+    .sort((a, b) => a - b);
 
-    let maxValue = 0;
+  if (balls.length === 0) {
+    return <div>No data for selected filters</div>;
+  }
 
-    WEEKDAYS.forEach((w) => {
-        DAYS.forEach((d) => {
-            const v = data.joint?.[w]?.[d]?.[selectedBall] || 0;
-            if (v > maxValue) maxValue = v;
-        });
-    });
+  // Collect all (ball, day, count) triples
+  const cells = [];
+  const allCounts = [];
 
-    return (
-        <div className="heatmap-container">
-            <div className="heatmap-row">
-                <div className="heatmap-cell header"/>
-                {DAYS.map((d) => (
-                    <div key={d} className="heatmap-cell header">
-                        {d}
-                    </div>
-                ))}
-            </div>
-            {WEEKDAYS.map((weekday) => (
-                <div key={weekday} className="heatmap-row">
-                    <div className="heatmap-cell header">{weekday}</div>
-                    {DAYS.map((day) => {
-                        const value = data?.joint?.[weekday]?.[day]?.[selectedBall] || 0;
-                        const ratio = maxValue > 0 ? value / maxValue : 0;
-                        const bgColor = value === 0
-                            ? "#ffffff"
-                            : colorScale(ratio).hex();
-                        return (
-                            <div
-                                key={`${weekday}-${day}`}
-                                className="heatmap-cell"
-                                style={{
-                                    backgroundColor: bgColor,
-                                    color: ratio > 0.6 ? "#ffffff" : "#000000",
-                                }}
-                                title={`${weekday}, ${day}: ${value}`}
-                            >
-                                {value > 0 ? value : ""}
-                            </div>
-                        );
-                    })}
-                </div>
-            ))}
-        </div>
-    );
+  balls.forEach((ballNumber, rowIndex) => {
+    const dayMap = heatmap[String(ballNumber)] || {};
+
+    for (let day = 1; day <= 31; day++) {
+      const key = String(day);
+      const count = dayMap[key] || 0;
+
+      cells.push({
+        x: day,
+        y: rowIndex,
+        v: count,
+      });
+
+      allCounts.push(count);
+    }
+  });
+
+  const max = Math.max(...allCounts, 1);
+  const colorScale = chroma.scale(["#f0f9e8", "#08589e"]).domain([0, max]);
+
+  const chartData = {
+    datasets: [
+      {
+        label: title,
+        data: cells,
+        backgroundColor: (ctx) => colorScale(ctx.raw.v).hex(),
+        borderColor: "#ffffff",
+        borderWidth: 1,
+        width: (ctx) => {
+          const area = ctx.chart.chartArea;
+          if (!area) return 10;
+          return area.width / 31; // 31 days
+        },
+        height: (ctx) => {
+          const area = ctx.chart.chartArea;
+          if (!area) return 10;
+          return area.height / balls.length; // one row per ball
+        },
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      title: { display: true, text: title },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const { x, y, raw } = ctx;
+            const ballNumber = balls[y];
+            return `${yLabel} ${ballNumber} — Day ${x}: ${raw.v}`;
+          },
+        },
+      },
+      legend: { display: false },
+    },
+    scales: {
+      x: {
+        type: "linear",
+        min: 1,
+        max: 31,
+        ticks: {
+          stepSize: 1,
+          autoSkip: false,
+          precision: 0,
+          callback: (v) => Number(v).toString(),
+        },
+        title: { display: true, text: "Day of Month" },
+      },
+      y: {
+        type: "category",
+        labels: balls.map((b) => String(b)),
+        ticks: {
+          autoSkip: false,
+        },
+        title: { display: true, text: yLabel },
+      },
+    },
+  };
+
+  return (
+    <div>
+      <Chart
+        key={title}
+        type="matrix"
+        data={chartData}
+        options={options}
+        redraw={false}
+      />
+    </div>
+  );
 }

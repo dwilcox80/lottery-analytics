@@ -8,7 +8,7 @@ export function fetchAnalytics(lottery) {
   return api.get(`/lottery/analytics/`, {
     params: { lottery },
     headers: {
-      Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+      Authorization: `Bearer ${localStorage.getItem("access")}`,
     },
   });
 }

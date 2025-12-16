@@ -68,7 +68,7 @@ def ingest_megamillions_between_dates(start: date, end: date):
 
 
 def ingest_megamillions_latest():
-    endpoint = "megamillions/v1/latest/"
+    endpoint = "megamillions/v1/latest"
     draws = _fetch(endpoint)
     if draws:
         _ingest_draws(draws, MegaMillionsDraw, MEGA_FIELD_MAP)
@@ -96,7 +96,7 @@ def ingest_powerball_between_dates(start: date, end: date):
 
 
 def ingest_powerball_latest():
-    endpoint = "powerball/v1/latest/"
+    endpoint = "powerball/v1/latest"
     draws = _fetch(endpoint)
     if draws:
         _ingest_draws(draws, PowerBallDraw, POWERBALL_FIELD_MAP)

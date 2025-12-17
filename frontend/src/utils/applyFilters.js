@@ -1,189 +1,123 @@
 import { WEEKDAYS } from "../constants/days_of_the_week.js";
 
-/**
- * Unified filtering engine for lottery analytics.
- *
- * Backend shape (per lottery):
- *
- * data = {
- *   weekday: { ... },          // main balls
- *   day_of_month: { ... },     // main balls
- *   joint: { ... },            // main balls
- *
- *   bonus_weekday: { ... },    // bonus balls
- *   bonus_day_of_month: { ... },
- *   bonus_joint: { ... },
- * }
- *
- * Output:
- *   - weekday_main: filtered weekday→ball→count (main)
- *   - weekday_bonus: filtered weekday→ball→count (bonus)
- *   - joint_main: filtered weekday→day→ball→count (main)
- *   - joint_bonus: filtered weekday→day→ball→count (bonus)
- *   - heatmap_main: ball→day→count (main)
- *   - heatmap_bonus: ball→day→count (bonus)
- */
-
 export function applyFilters(data, filters) {
   if (!data) return null;
 
   const { weekday, dayOfMonth, ball } = filters;
-
   const selectedBall = ball === "" ? null : String(ball);
-  const selectedDay = dayOfMonth === "" ? null : String(dayOfMonth);
 
-  // WEEKDAYS = ["Sunday", "Monday", ...] (0-based indices)
   const weekdayNames = WEEKDAYS;
   const selectedWeekdays =
     weekday === "" ? weekdayNames : [weekdayNames[weekday]];
 
-  // MAIN BALLS
-  const joint_main = buildFilteredJoint(
-    data.joint || {},
-    selectedWeekdays,
-    selectedDay,
-    selectedBall
-  );
-  const weekday_main = buildFilteredWeekday(
-    data.joint || {},
-    selectedWeekdays,
-    selectedDay,
-    selectedBall
-  );
-  const heatmap_main = buildHeatmapFromJoint(joint_main);
+  // MAIN weekday filtering
+  const weekday_main = filterWeekday(data.weekday, selectedWeekdays, selectedBall);
+  const weekday_bonus = filterWeekday(data.bonus_weekday, selectedWeekdays, selectedBall);
 
-  // BONUS BALLS
-  const joint_bonus = buildFilteredJoint(
-    data.bonus_joint || {},
-    selectedWeekdays,
-    selectedDay,
-    selectedBall
-  );
-  const weekday_bonus = buildFilteredWeekday(
-    data.bonus_joint || {},
-    selectedWeekdays,
-    selectedDay,
-    selectedBall
-  );
-  const heatmap_bonus = buildHeatmapFromJoint(joint_bonus);
+  // HEATMAP MODES
+  const heatmap_weekday_main = weekdayToHeatmap(weekday_main);
+  const heatmap_weekday_bonus = weekdayToHeatmap(weekday_bonus);
+
+  const heatmap_month_main = monthHeatmap(data.draws, false, selectedBall);
+  const heatmap_month_bonus = monthHeatmap(data.draws, true, selectedBall);
+
+  const heatmap_cooccurrence_main = cooccurrenceHeatmap(data.draws);
+
+  const heatmap_drawindex_main = drawIndexHeatmap(data.draws, false, selectedBall);
+  const heatmap_drawindex_bonus = drawIndexHeatmap(data.draws, true, selectedBall);
 
   return {
     weekday_main,
     weekday_bonus,
-    joint_main,
-    joint_bonus,
-    heatmap_main,
-    heatmap_bonus,
+
+    heatmap_weekday_main,
+    heatmap_weekday_bonus,
+
+    heatmap_month_main,
+    heatmap_month_bonus,
+
+    heatmap_cooccurrence_main,
+
+    heatmap_drawindex_main,
+    heatmap_drawindex_bonus,
   };
 }
 
-/**
- * weekday → ball → count
- *
- * If a specific day is selected, we rebuild weekday frequencies
- * from joint[weekday][day][ball]. Otherwise we aggregate over all days.
- */
-function buildFilteredWeekday(joint, selectedWeekdays, selectedDay, selectedBall) {
+function filterWeekday(weekdayData, selectedWeekdays, selectedBall) {
   const result = {};
-
-  selectedWeekdays.forEach((weekday) => {
-    const weekdayData = {};
-    const weekdayJoint = joint[weekday] || {};
-
-    if (selectedDay !== null) {
-      const ballMap = weekdayJoint[selectedDay] || {};
-      for (const [ball, count] of Object.entries(ballMap)) {
-        if (selectedBall === null || selectedBall === ball) {
-          weekdayData[ball] = count;
-        }
-      }
+  selectedWeekdays.forEach((w) => {
+    const row = weekdayData[w] || {};
+    if (selectedBall) {
+      result[w] = { [selectedBall]: row[selectedBall] ?? 0 };
     } else {
-      for (const [, ballMap] of Object.entries(weekdayJoint)) {
-        for (const [ball, count] of Object.entries(ballMap)) {
-          if (selectedBall !== null && selectedBall !== ball) continue;
-          weekdayData[ball] = (weekdayData[ball] || 0) + count;
-        }
-      }
+      result[w] = row;
     }
-
-    result[weekday] = weekdayData;
   });
-
   return result;
 }
 
-/**
- * joint → weekday → day → ball → count
- *
- * We only include selected weekdays.
- * If a specific day is selected, we keep only that day; otherwise all days.
- */
-function buildFilteredJoint(joint, selectedWeekdays, selectedDay, selectedBall) {
-  const result = {};
-
-  selectedWeekdays.forEach((weekday) => {
-    const weekdayJoint = joint[weekday] || {};
-    const filteredDays = {};
-
-    if (selectedDay !== null) {
-      const ballMap = weekdayJoint[selectedDay] || {};
-      filteredDays[selectedDay] = filterBallLayer(ballMap, selectedBall);
-    } else {
-      for (const [day, ballMap] of Object.entries(weekdayJoint)) {
-        filteredDays[day] = filterBallLayer(ballMap, selectedBall);
-      }
-    }
-
-    result[weekday] = filteredDays;
-  });
-
-  return result;
-}
-
-/**
- * Reduce joint (weekday→day→ball→count) into:
- *
- * heatmap[ball][day] = total count across selected weekdays
- *
- * This is exactly what the Ball × Day-of-Month heatmap needs.
- */
-function buildHeatmapFromJoint(filteredJoint) {
+function weekdayToHeatmap(weekdayData) {
   const heatmap = {};
-
-  if (!filteredJoint || typeof filteredJoint !== "object") {
-    return heatmap;
-  }
-
-  for (const weekday of Object.keys(filteredJoint)) {
-    const dayMap = filteredJoint[weekday];
-
-    // Skip if weekday has no days
-    if (!dayMap || typeof dayMap !== "object") continue;
-
-    for (const day of Object.keys(dayMap)) {
-      const ballMap = dayMap[day];
-
-      // Skip if day has no balls
-      if (!ballMap || typeof ballMap !== "object") continue;
-
-      for (const [ball, count] of Object.entries(ballMap)) {
-        if (!heatmap[ball]) heatmap[ball] = {};
-        heatmap[ball][day] = (heatmap[ball][day] || 0) + count;
-      }
+  for (const [weekday, balls] of Object.entries(weekdayData)) {
+    for (const [ball, count] of Object.entries(balls)) {
+      if (!heatmap[ball]) heatmap[ball] = {};
+      heatmap[ball][weekday] = count;
     }
   }
-
   return heatmap;
 }
 
-/**
- * Filter a ball → count map by selectedBall.
- */
-function filterBallLayer(ballMap, selectedBall) {
-  if (selectedBall === null) return ballMap;
-  if (!ballMap || typeof ballMap !== "object") return {};
+function monthHeatmap(draws, isBonus, selectedBall) {
+  const heatmap = {};
+  draws.forEach((draw) => {
+    const month = String(new Date(draw.date).getMonth() + 1);
+    if (isBonus) {
+      const b = String(draw.bonus);
+      if (selectedBall && selectedBall !== b) return;
+      if (!heatmap[b]) heatmap[b] = {};
+      heatmap[b][month] = (heatmap[b][month] || 0) + 1;
+    } else {
+      draw.main.forEach((ball) => {
+        const b = String(ball);
+        if (selectedBall && selectedBall !== b) return;
+        if (!heatmap[b]) heatmap[b] = {};
+        heatmap[b][month] = (heatmap[b][month] || 0) + 1;
+      });
+    }
+  });
+  return heatmap;
+}
 
-  return {
-    [selectedBall]: ballMap[selectedBall] ?? 0,
-  };
+function cooccurrenceHeatmap(draws) {
+  const heatmap = {};
+  draws.forEach((draw) => {
+    const bonus = String(draw.bonus);
+    draw.main.forEach((ball) => {
+      const b = String(ball);
+      if (!heatmap[b]) heatmap[b] = {};
+      heatmap[b][bonus] = (heatmap[b][bonus] || 0) + 1;
+    });
+  });
+  return heatmap;
+}
+
+function drawIndexHeatmap(draws, isBonus, selectedBall) {
+  const heatmap = {};
+  draws.forEach((draw, index) => {
+    const drawIndex = index + 1;
+    if (isBonus) {
+      const b = String(draw.bonus);
+      if (selectedBall && selectedBall !== b) return;
+      if (!heatmap[b]) heatmap[b] = {};
+      heatmap[b][drawIndex] = 1;
+    } else {
+      draw.main.forEach((ball) => {
+        const b = String(ball);
+        if (selectedBall && selectedBall !== b) return;
+        if (!heatmap[b]) heatmap[b] = {};
+        heatmap[b][drawIndex] = 1;
+      });
+    }
+  });
+  return heatmap;
 }

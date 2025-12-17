@@ -52,14 +52,17 @@ class DrawAnalyticsQuerySet(models.QuerySet):
                 for b in all_bonus:
                     bonus_joint_counts[w][d][b] = 0
 
-        # Iterate through draws
-        for draw in self.iterator():
+        # Collect draws for frontend time-series & co-occurrence
+        draws_list = []
+
+        for draw in self.order_by("draw_date"):
             date = draw.draw_date
             weekday = date.strftime("%A")
             day = str(date.day)
 
             # Main balls
-            for ball in draw.get_main_balls():
+            main_balls = draw.get_main_balls()
+            for ball in main_balls:
                 b = str(ball)
                 if b in all_balls:
                     weekday_counts[weekday][b] += 1
@@ -72,6 +75,13 @@ class DrawAnalyticsQuerySet(models.QuerySet):
                 bonus_weekday_counts[weekday][bonus] += 1
                 bonus_day_counts[day][bonus] += 1
                 bonus_joint_counts[weekday][day][bonus] += 1
+
+            # Add to draws array
+            draws_list.append({
+                "date": date.isoformat(),
+                "main": main_balls,
+                "bonus": draw.bonus_ball,
+            })
 
         def _to_dict(obj):
             if isinstance(obj, defaultdict):
@@ -88,4 +98,6 @@ class DrawAnalyticsQuerySet(models.QuerySet):
             "bonus_weekday": _to_dict(bonus_weekday_counts),
             "bonus_day_of_month": _to_dict(bonus_day_counts),
             "bonus_joint": _to_dict(bonus_joint_counts),
+
+            "draws": draws_list,
         }

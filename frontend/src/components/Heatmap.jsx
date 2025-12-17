@@ -11,7 +11,6 @@ import {
 } from "chart.js";
 import { MatrixController, MatrixElement } from "chartjs-chart-matrix";
 
-// Register Chart.js components
 ChartJS.register(
   MatrixController,
   MatrixElement,
@@ -22,45 +21,37 @@ ChartJS.register(
   Title
 );
 
-/**
- * Heatmap: Ball (Y) × Day-of-Month (X)
- *
- * Expects:
- *   heatmap[ball][day] = count
- */
-export default function Heatmap({ heatmap, title, yLabel }) {
+export default function Heatmap({ heatmap, title, xLabel, yLabel }) {
   if (!heatmap) return null;
 
   const balls = Object.keys(heatmap)
-    .map((b) => Number(b))
+    .map(Number)
     .sort((a, b) => a - b);
 
-  if (balls.length === 0) {
-    return <div>No data for selected filters</div>;
-  }
+  if (balls.length === 0) return <div>No data</div>;
 
-  // Collect all (ball, day, count) triples
-  const cells = [];
-  const allCounts = [];
-
-  balls.forEach((ballNumber, rowIndex) => {
-    const dayMap = heatmap[String(ballNumber)] || {};
-
-    for (let day = 1; day <= 31; day++) {
-      const key = String(day);
-      const count = dayMap[key] || 0;
-
-      cells.push({
-        x: day,
-        y: rowIndex,
-        v: count,
-      });
-
-      allCounts.push(count);
-    }
+  const colKeys = Array.from(
+    new Set(
+      balls.flatMap((b) => Object.keys(heatmap[b] || {}))
+    )
+  ).sort((a, b) => {
+    const na = Number(a);
+    const nb = Number(b);
+    return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb;
   });
 
-  const max = Math.max(...allCounts, 1);
+  const cells = [];
+  const counts = [];
+
+  balls.forEach((ball, rowIndex) => {
+    colKeys.forEach((col, colIndex) => {
+      const count = heatmap[ball]?.[col] || 0;
+      cells.push({ x: colIndex, y: rowIndex, v: count });
+      counts.push(count);
+    });
+  });
+
+  const max = Math.max(...counts, 1);
   const colorScale = chroma.scale(["#f0f9e8", "#08589e"]).domain([0, max]);
 
   const chartData = {
@@ -69,17 +60,17 @@ export default function Heatmap({ heatmap, title, yLabel }) {
         label: title,
         data: cells,
         backgroundColor: (ctx) => colorScale(ctx.raw.v).hex(),
-        borderColor: "#ffffff",
+        borderColor: "#fff",
         borderWidth: 1,
         width: (ctx) => {
           const area = ctx.chart.chartArea;
-          if (!area) return 10;
-          return area.width / 31; // 31 days
+          if (!area) return 10; // safe fallback before layout
+          return area.width / colKeys.length;
         },
         height: (ctx) => {
           const area = ctx.chart.chartArea;
-          if (!area) return 10;
-          return area.height / balls.length; // one row per ball
+          if (!area) return 10; // safe fallback before layout
+          return area.height / balls.length;
         },
       },
     ],
@@ -90,50 +81,34 @@ export default function Heatmap({ heatmap, title, yLabel }) {
     maintainAspectRatio: false,
     plugins: {
       title: { display: true, text: title },
+      legend: { display: false },
       tooltip: {
         callbacks: {
           label: (ctx) => {
-            const { x, y, raw } = ctx;
-            const ballNumber = balls[y];
-            return `${yLabel} ${ballNumber} — Day ${x}: ${raw.v}`;
+            const ball = balls[ctx.raw.y];
+            const col = colKeys[ctx.raw.x];
+            return `${yLabel} ${ball} × ${xLabel} ${col}: ${ctx.raw.v}`;
           },
         },
       },
-      legend: { display: false },
     },
     scales: {
       x: {
-        type: "linear",
-        min: 1,
-        max: 31,
-        ticks: {
-          stepSize: 1,
-          autoSkip: false,
-          precision: 0,
-          callback: (v) => Number(v).toString(),
-        },
-        title: { display: true, text: "Day of Month" },
+        type: "category",
+        labels: colKeys,
+        title: { display: true, text: xLabel },
       },
       y: {
         type: "category",
-        labels: balls.map((b) => String(b)),
-        ticks: {
-          autoSkip: false,
-        },
+        labels: balls.map(String),
         title: { display: true, text: yLabel },
       },
     },
   };
 
   return (
-    <div>
-      <Chart
-        key={title}
-        type="matrix"
-        data={chartData}
-        options={options}
-        redraw={false}
-      />
+    <div style={{ width: "1000px", height: "1200px" }}>
+      <Chart type="matrix" data={chartData} options={options} />
     </div>
   );
 }

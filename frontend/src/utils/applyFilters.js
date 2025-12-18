@@ -1,60 +1,76 @@
 import { WEEKDAYS } from "../constants/days_of_the_week.js";
 
-export function applyFilters(data, filters) {
-  if (!data) return null;
+// ---------------------------------------------------------
+// 1. FILTER RAW DRAWS BY WEEKDAY, DAY-OF-MONTH, BALL
+// ---------------------------------------------------------
 
+function filterDraws(draws, filters) {
   const { weekday, dayOfMonth, ball } = filters;
-  const selectedBall = ball === "" ? null : String(ball);
 
-  const weekdayNames = WEEKDAYS;
-  const selectedWeekdays =
-    weekday === "" ? weekdayNames : [weekdayNames[weekday]];
+  return draws.filter((draw) => {
+    const date = new Date(draw.date + "T00:00:00");
+    const drawWeekdayIndex = date.getDay(); // 0=Sun..6=Sat
+    const drawDay = date.getDate();
 
-  // MAIN weekday filtering
-  const weekday_main = filterWeekday(data.weekday, selectedWeekdays, selectedBall);
-  const weekday_bonus = filterWeekday(data.bonus_weekday, selectedWeekdays, selectedBall);
+    // Weekday filter (weekday is an index into WEEKDAYS)
+    if (weekday !== "" && drawWeekdayIndex !== Number(weekday)) {
+      return false;
+    }
 
-  // HEATMAP MODES
-  const heatmap_weekday_main = weekdayToHeatmap(weekday_main);
-  const heatmap_weekday_bonus = weekdayToHeatmap(weekday_bonus);
+    // Day-of-month filter
+    if (dayOfMonth !== "" && drawDay !== Number(dayOfMonth)) {
+      return false;
+    }
 
-  const heatmap_month_main = monthHeatmap(data.draws, false, selectedBall);
-  const heatmap_month_bonus = monthHeatmap(data.draws, true, selectedBall);
+    // Ball filter (included in main or bonus)
+    if (ball !== "") {
+      const b = String(ball);
+      const inMain = draw.main.map(String).includes(b);
+      const isBonus = String(draw.bonus) === b;
+      if (!inMain && !isBonus) {
+        return false;
+      }
+    }
 
-  const heatmap_cooccurrence_main = cooccurrenceHeatmap(data.draws);
-
-  const heatmap_drawindex_main = drawIndexHeatmap(data.draws, false, selectedBall);
-  const heatmap_drawindex_bonus = drawIndexHeatmap(data.draws, true, selectedBall);
-
-  return {
-    weekday_main,
-    weekday_bonus,
-
-    heatmap_weekday_main,
-    heatmap_weekday_bonus,
-
-    heatmap_month_main,
-    heatmap_month_bonus,
-
-    heatmap_cooccurrence_main,
-
-    heatmap_drawindex_main,
-    heatmap_drawindex_bonus,
-  };
+    return true;
+  });
 }
 
-function filterWeekday(weekdayData, selectedWeekdays, selectedBall) {
+// ---------------------------------------------------------
+// 2. RECOMPUTE WEEKDAY COUNTS FROM FILTERED DRAWS
+// ---------------------------------------------------------
+
+function computeWeekdayCounts(draws, isBonus, selectedBall) {
   const result = {};
-  selectedWeekdays.forEach((w) => {
-    const row = weekdayData[w] || {};
-    if (selectedBall) {
-      result[w] = { [selectedBall]: row[selectedBall] ?? 0 };
+
+  draws.forEach((draw) => {
+    const date = new Date(draw.date);
+    const weekdayIndex = date.getDay(); // 0–6
+    const weekdayName = WEEKDAYS[weekdayIndex];
+
+    if (!result[weekdayName]) result[weekdayName] = {};
+
+    if (isBonus) {
+      const b = String(draw.bonus);
+      if (!selectedBall || selectedBall === b) {
+        result[weekdayName][b] = (result[weekdayName][b] || 0) + 1;
+      }
     } else {
-      result[w] = row;
+      draw.main.forEach((ball) => {
+        const b = String(ball);
+        if (!selectedBall || selectedBall === b) {
+          result[weekdayName][b] = (result[weekdayName][b] || 0) + 1;
+        }
+      });
     }
   });
+
   return result;
 }
+
+// ---------------------------------------------------------
+// 3. HEATMAP HELPERS
+// ---------------------------------------------------------
 
 function weekdayToHeatmap(weekdayData) {
   const heatmap = {};
@@ -71,6 +87,7 @@ function monthHeatmap(draws, isBonus, selectedBall) {
   const heatmap = {};
   draws.forEach((draw) => {
     const month = String(new Date(draw.date).getMonth() + 1);
+
     if (isBonus) {
       const b = String(draw.bonus);
       if (selectedBall && selectedBall !== b) return;
@@ -105,6 +122,7 @@ function drawIndexHeatmap(draws, isBonus, selectedBall) {
   const heatmap = {};
   draws.forEach((draw, index) => {
     const drawIndex = index + 1;
+
     if (isBonus) {
       const b = String(draw.bonus);
       if (selectedBall && selectedBall !== b) return;
@@ -120,4 +138,58 @@ function drawIndexHeatmap(draws, isBonus, selectedBall) {
     }
   });
   return heatmap;
+}
+
+// ---------------------------------------------------------
+// 4. MAIN applyFilters()
+// ---------------------------------------------------------
+
+export function applyFilters(data, filters) {
+  if (!data) return null;
+
+  const selectedBall =
+    filters.ball === "" ? null : String(filters.ball);
+
+  // Step 1: filter raw draws by weekday, day-of-month, ball
+  const filteredDraws = filterDraws(data.draws, filters);
+
+  // Step 2: recompute weekday counts from filtered draws
+  const weekday_main = computeWeekdayCounts(filteredDraws, false, selectedBall);
+  const weekday_bonus = computeWeekdayCounts(filteredDraws, true, selectedBall);
+
+  // Step 3: recompute heatmaps from filtered draws
+  const heatmap_weekday_main = weekdayToHeatmap(weekday_main);
+  const heatmap_weekday_bonus = weekdayToHeatmap(weekday_bonus);
+
+  const heatmap_month_main = monthHeatmap(filteredDraws, false, selectedBall);
+  const heatmap_month_bonus = monthHeatmap(filteredDraws, true, selectedBall);
+
+  const heatmap_cooccurrence_main = cooccurrenceHeatmap(filteredDraws);
+
+  const heatmap_drawindex_main = drawIndexHeatmap(
+    filteredDraws,
+    false,
+    selectedBall
+  );
+  const heatmap_drawindex_bonus = drawIndexHeatmap(
+    filteredDraws,
+    true,
+    selectedBall
+  );
+
+  return {
+    weekday_main,
+    weekday_bonus,
+
+    heatmap_weekday_main,
+    heatmap_weekday_bonus,
+
+    heatmap_month_main,
+    heatmap_month_bonus,
+
+    heatmap_cooccurrence_main,
+
+    heatmap_drawindex_main,
+    heatmap_drawindex_bonus,
+  };
 }

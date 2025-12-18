@@ -34,8 +34,8 @@ export default function App() {
           }
         />
 
-        {/* Default route */}
-        <Route path="*" element={<Analytics />} />
+        {/*/!* Default route *!/*/}
+        {/*<Route path="*" element={<Analytics />} />*/}
 
       </Routes>
     </BrowserRouter>

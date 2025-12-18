@@ -1,14 +1,24 @@
 import React, { useState, useContext } from "react";
+import { useNavigate } from "react-router-dom"
 import { AuthContext } from "../auth/AuthContext";
 
 export default function LoginForm() {
+  const navigate = useNavigate();
   const { login } = useContext(AuthContext);
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await login(username, password);
+
+    try {
+      await login(username, password);
+      navigate("/analytics");   // ⭐ redirect after login
+    } catch (err) {
+      console.error(err);
+      alert("Invalid credentials");
+    }
   };
 
   return (

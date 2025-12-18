@@ -1,4 +1,4 @@
-export default function OverdueMain({ data }) {
+export default function OverdueBonus({ data }) {
   return (
     <div className="card">
       <h3>⏳ Overdue Bonus Balls</h3>

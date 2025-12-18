@@ -6,13 +6,13 @@ from django.db import models
 
 
 class DrawAnalyticsQuerySet(models.QuerySet):
-    def _ball_range(self):
+    def _ball_range(self, ball_range: str=""):
         """
         Returns the valid main ball range for the lottery model.
         Expects the model to define a BALL_RANGE attribute.
         """
-        ball_range = getattr(self.model, "BALL_RANGE", None)
-        if ball_range is None:
+        ball_range = getattr(self.model, ball_range, None)
+        if ball_range is "":
             return []
         return ball_range
 
@@ -27,8 +27,8 @@ class DrawAnalyticsQuerySet(models.QuerySet):
 
         all_weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         all_days = [str(d) for d in range(1, 32)]
-        all_balls = [str(b) for b in self._ball_range()]
-        all_bonus = [str(b) for b in getattr(self.model, "BONUS_BALL_RANGE", [])]
+        all_balls = [str(b) for b in self._ball_range(ball_range="BALL_RANGE")]
+        all_bonus = [str(b) for b in self._ball_range(ball_range="BONUS_BALL_RANGE")]
 
         # Pre-init main balls
         for w in all_weekdays:

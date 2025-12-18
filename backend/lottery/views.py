@@ -43,8 +43,8 @@ class LotteryAnalyticsView(APIView):
         latest_db_date = qs.latest("draw_date").draw_date
 
         # If cache is valid, return it
-        # if cached and cached.get("latest_date") == latest_db_date:
-        #     return Response(cached["data"])
+        if cached and cached.get("latest_date") == latest_db_date:
+            return Response(cached["data"])
 
         # Recompute analytics
         counts = qs.with_joint_counts()
@@ -54,8 +54,8 @@ class LotteryAnalyticsView(APIView):
 
         summary = compute_summary(
             counts["draws"],
-            main_range=(qs.model, "BALL_RANGE"),
-            bonus_range=(qs.model, "BALL_RANGE")
+            main_range=getattr(qs.model, "BALL_RANGE"),
+            bonus_range=getattr(qs.model, "BONUS_BALL_RANGE"),
         )
 
         analytics = {

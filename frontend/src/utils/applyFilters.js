@@ -12,7 +12,8 @@ function filterDraws(draws, filters) {
     const drawWeekdayIndex = date.getDay(); // 0=Sun..6=Sat
     const drawDay = date.getDate();
 
-    // Weekday filter (weekday is an index into WEEKDAYS)
+
+    // Weekday filter
     if (weekday !== "" && drawWeekdayIndex !== Number(weekday)) {
       return false;
     }
@@ -22,7 +23,7 @@ function filterDraws(draws, filters) {
       return false;
     }
 
-    // Ball filter (included in main or bonus)
+    // Ball filter
     if (ball !== "") {
       const b = String(ball);
       const inMain = draw.main.map(String).includes(b);
@@ -31,7 +32,6 @@ function filterDraws(draws, filters) {
         return false;
       }
     }
-
     return true;
   });
 }
@@ -69,79 +69,7 @@ function computeWeekdayCounts(draws, isBonus, selectedBall) {
 }
 
 // ---------------------------------------------------------
-// 3. HEATMAP HELPERS
-// ---------------------------------------------------------
-
-function weekdayToHeatmap(weekdayData) {
-  const heatmap = {};
-  for (const [weekday, balls] of Object.entries(weekdayData)) {
-    for (const [ball, count] of Object.entries(balls)) {
-      if (!heatmap[ball]) heatmap[ball] = {};
-      heatmap[ball][weekday] = count;
-    }
-  }
-  return heatmap;
-}
-
-function monthHeatmap(draws, isBonus, selectedBall) {
-  const heatmap = {};
-  draws.forEach((draw) => {
-    const month = String(new Date(draw.date).getMonth() + 1);
-
-    if (isBonus) {
-      const b = String(draw.bonus);
-      if (selectedBall && selectedBall !== b) return;
-      if (!heatmap[b]) heatmap[b] = {};
-      heatmap[b][month] = (heatmap[b][month] || 0) + 1;
-    } else {
-      draw.main.forEach((ball) => {
-        const b = String(ball);
-        if (selectedBall && selectedBall !== b) return;
-        if (!heatmap[b]) heatmap[b] = {};
-        heatmap[b][month] = (heatmap[b][month] || 0) + 1;
-      });
-    }
-  });
-  return heatmap;
-}
-
-function cooccurrenceHeatmap(draws) {
-  const heatmap = {};
-  draws.forEach((draw) => {
-    const bonus = String(draw.bonus);
-    draw.main.forEach((ball) => {
-      const b = String(ball);
-      if (!heatmap[b]) heatmap[b] = {};
-      heatmap[b][bonus] = (heatmap[b][bonus] || 0) + 1;
-    });
-  });
-  return heatmap;
-}
-
-function drawIndexHeatmap(draws, isBonus, selectedBall) {
-  const heatmap = {};
-  draws.forEach((draw, index) => {
-    const drawIndex = index + 1;
-
-    if (isBonus) {
-      const b = String(draw.bonus);
-      if (selectedBall && selectedBall !== b) return;
-      if (!heatmap[b]) heatmap[b] = {};
-      heatmap[b][drawIndex] = 1;
-    } else {
-      draw.main.forEach((ball) => {
-        const b = String(ball);
-        if (selectedBall && selectedBall !== b) return;
-        if (!heatmap[b]) heatmap[b] = {};
-        heatmap[b][drawIndex] = 1;
-      });
-    }
-  });
-  return heatmap;
-}
-
-// ---------------------------------------------------------
-// 4. MAIN applyFilters()
+// 3. MAIN applyFilters()
 // ---------------------------------------------------------
 
 export function applyFilters(data, filters) {
@@ -157,39 +85,9 @@ export function applyFilters(data, filters) {
   const weekday_main = computeWeekdayCounts(filteredDraws, false, selectedBall);
   const weekday_bonus = computeWeekdayCounts(filteredDraws, true, selectedBall);
 
-  // Step 3: recompute heatmaps from filtered draws
-  const heatmap_weekday_main = weekdayToHeatmap(weekday_main);
-  const heatmap_weekday_bonus = weekdayToHeatmap(weekday_bonus);
-
-  const heatmap_month_main = monthHeatmap(filteredDraws, false, selectedBall);
-  const heatmap_month_bonus = monthHeatmap(filteredDraws, true, selectedBall);
-
-  const heatmap_cooccurrence_main = cooccurrenceHeatmap(filteredDraws);
-
-  const heatmap_drawindex_main = drawIndexHeatmap(
-    filteredDraws,
-    false,
-    selectedBall
-  );
-  const heatmap_drawindex_bonus = drawIndexHeatmap(
-    filteredDraws,
-    true,
-    selectedBall
-  );
-
   return {
     weekday_main,
     weekday_bonus,
 
-    heatmap_weekday_main,
-    heatmap_weekday_bonus,
-
-    heatmap_month_main,
-    heatmap_month_bonus,
-
-    heatmap_cooccurrence_main,
-
-    heatmap_drawindex_main,
-    heatmap_drawindex_bonus,
   };
 }

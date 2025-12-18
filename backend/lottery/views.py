@@ -1,4 +1,6 @@
-# lottery/views.py
+"""
+Lottery app views
+"""
 from django.core.cache import cache
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
@@ -7,6 +9,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .models import MegaMillionsDraw, PowerBallDraw
+from .lottery_analytics_utils import compute_summary
 
 
 class LotteryAnalyticsView(APIView):
@@ -28,16 +31,37 @@ class LotteryAnalyticsView(APIView):
             )
 
         cache_key = f"lottery_analytics:{lottery}"
+        cached = cache.get(cache_key)
 
-        data = cache.get(cache_key)
-        if data is None:
-            if lottery == "megamillions":
-                qs = MegaMillionsDraw.objects.all()
-            else:  # "powerball"
-                qs = PowerBallDraw.objects.all()
+        # Select queryset
+        if lottery == "megamillions":
+            qs = MegaMillionsDraw.objects.all()
+        else:
+            qs = PowerBallDraw.objects.all()
 
-            data = qs.with_joint_counts()
-            # Cache for 1 hour; adjust as needed
-            cache.set(cache_key, data, timeout=60 * 60)
+        # Latest draw date in DB
+        latest_db_date = qs.latest("draw_date").draw_date
 
-        return Response(data)
+        # If cache is valid, return it
+        if cached and cached.get("latest_date") == latest_db_date:
+            return Response(cached["data"])
+
+        # Recompute analytics
+        weekday_main, weekday_bonus = qs.with_joint_counts()
+
+        summary = compute_summary(qs)
+
+        analytics = {
+            "weekday_main": weekday_main,
+            "weekday_bonus": weekday_bonus,
+            "summary": summary,
+        }
+
+        payload = {
+            "latest_date": latest_db_date,
+            "data": analytics,
+        }
+
+        cache.set(cache_key, payload, timeout=3600)
+
+        return Response(analytics)

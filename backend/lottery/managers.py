@@ -1,4 +1,6 @@
-# lottery/managers.py
+"""
+Lottery app custom managers
+"""
 from collections import defaultdict
 from django.db import models
 

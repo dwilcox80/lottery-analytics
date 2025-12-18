@@ -1,16 +1,28 @@
 """
-Utility file to help with analytic heavy lifting
+Lottery app utility file for analytical heavy lifting
 """
-from datetime import timedelta
+
+from datetime import timedelta, datetime
 from django.utils import timezone
 
-def compute_summary(draws):
+
+def compute_summary(draws_list, main_range, bonus_range):
+    """
+    Efficiently computes hottest balls, overdue balls, and recent draws
+    using the precomputed draws_list from with_joint_counts().
+
+    draws_list: [
+        { "date": "2025-12-17", "main": [...], "bonus": 17 },
+        ...
+    ]
+
+    main_range: iterable of valid main ball numbers
+    bonus_range: iterable of valid bonus ball numbers
+    """
+
     today = timezone.now().date()
 
-    # Convert queryset to list of dicts for easier processing
-    records = list(draws.values("draw_date", "main", "bonus"))
-
-    # Precompute date ranges
+    # Precompute date cutoffs
     ranges = {
         30: today - timedelta(days=30),
         60: today - timedelta(days=60),
@@ -21,28 +33,31 @@ def compute_summary(draws):
     hottest_main = {30: {}, 60: {}, 90: {}}
     hottest_bonus = {30: {}, 60: {}, 90: {}}
 
-    last_seen_main = {n: None for n in range(1, 70)}
-    last_seen_bonus = {n: None for n in range(1, 27)}
+    # Track last-seen dates
+    last_seen_main = {str(n): None for n in main_range}
+    last_seen_bonus = {str(n): None for n in bonus_range}
 
-    # Iterate through draws
-    for rec in records:
-        date = rec["draw_date"]
+    # Iterate through precomputed draws
+    for rec in draws_list:
+        # Convert ISO date string to date object
+        date = datetime.fromisoformat(rec["date"]).date()
         main = rec["main"]
-        bonus = rec["bonus"]
+        bonus = str(rec["bonus"])
 
         # Track last seen
         for m in main:
-            last_seen_main[m] = date
+            last_seen_main[str(m)] = date
         last_seen_bonus[bonus] = date
 
         # Count hottest in each range
         for days, cutoff in ranges.items():
             if date >= cutoff:
                 for m in main:
-                    hottest_main[days][m] = hottest_main[days].get(m, 0) + 1
+                    key = str(m)
+                    hottest_main[days][key] = hottest_main[days].get(key, 0) + 1
                 hottest_bonus[days][bonus] = hottest_bonus[days].get(bonus, 0) + 1
 
-    # Sort hottest
+    # Sort hottest balls (top 5)
     hottest_main_sorted = {
         days: sorted(counts, key=counts.get, reverse=True)[:5]
         for days, counts in hottest_main.items()
@@ -53,7 +68,7 @@ def compute_summary(draws):
         for days, counts in hottest_bonus.items()
     }
 
-    # Overdue
+    # Overdue balls
     overdue_main = {
         days: [
             n for n, last in last_seen_main.items()
@@ -70,15 +85,8 @@ def compute_summary(draws):
         for days in ranges
     }
 
-    # Last 10 draws
-    recent = [
-        {
-            "date": rec["draw_date"],
-            "main": rec["main"],
-            "bonus": rec["bonus"],
-        }
-        for rec in records[-10:]
-    ]
+    # Last 10 draws (already sorted by date in manager)
+    recent = draws_list[-10:]
 
     return {
         "hottest_main": hottest_main_sorted,

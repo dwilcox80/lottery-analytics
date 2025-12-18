@@ -15,15 +15,20 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 export default function BallFrequencyChart({ weekdayData, title }) {
   if (!weekdayData) return null;
 
-  const rows = [];
+  // Aggregate counts across all weekdays
+  const aggregate = {};
 
   for (const balls of Object.values(weekdayData)) {
     for (const [ball, count] of Object.entries(balls)) {
-      rows.push({ ball: Number(ball), count });
+      const b = Number(ball);
+      aggregate[b] = (aggregate[b] || 0) + count;
     }
   }
 
-  rows.sort((a, b) => a.ball - b.ball);
+  // Convert to sorted rows
+  const rows = Object.entries(aggregate)
+    .map(([ball, count]) => ({ ball: Number(ball), count }))
+    .sort((a, b) => a.ball - b.ball);
 
   const labels = rows.map((r) => r.ball);
   const counts = rows.map((r) => r.count);

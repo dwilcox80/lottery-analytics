@@ -1,5 +1,5 @@
-import {useEffect, useState} from "react";
-import {useAnalyticsApi} from "../api/axios.js";
+import { useEffect, useState } from "react";
+import { useAnalyticsApi } from "../api/axios.js";
 
 import AnalyticsDashboard from "../components/AnalyticsDashboard";
 import BallFrequencyChart from "../components/BallFrequencyChart";
@@ -7,7 +7,8 @@ import BallSelector from "../components/BallSelector";
 import DaySelector from "../components/DaySelector";
 import LotterySelector from "../components/LotterySelector";
 
-import {applyFilters} from "../utils/applyFilters";
+import { applyFilters } from "../utils/applyFilters";
+import { WEEKDAYS } from "../constants/days_of_the_week.js";
 
 export default function Analytics() {
     const [lottery, setLottery] = useState("powerball");
@@ -20,7 +21,6 @@ export default function Analytics() {
     });
 
     const [showBonus, setShowBonus] = useState(false);
-    const [heatmapMode, setHeatmapMode] = useState("weekday");
 
     function updateFilter(key, value) {
         setFilters((prev) => ({...prev, [key]: value}));
@@ -32,15 +32,25 @@ export default function Analytics() {
         setData(null);
         fetchAnalytics(lottery).then((res) => setData(res.data));
     }, [lottery]);
-
+    console.log(data)
     if (!data) return <div>Loading…</div>;
 
     const filtered = applyFilters(data, filters);
 
-    let heatmap;
-    let title;
-    let xLabel;
-    let yLabel = showBonus ? "Bonus Ball" : "Ball Number";
+    // Determine if any filters are active
+    const filtersActive =
+        filters.weekday !== "" ||
+        filters.dayOfMonth !== "" ||
+        filters.ball !== "";
+
+    // Reset all filters
+    function clearAllFilters() {
+        setFilters({
+            weekday: "",
+            dayOfMonth: "",
+            ball: "",
+        });
+    }
 
     return (
         <div style={{width: "900px"}}>
@@ -64,6 +74,34 @@ export default function Analytics() {
                 onChange={(v) => updateFilter("ball", v)}
             />
 
+            {/* Clear Filters Button */}
+            <div style={{margin: "1rem 0"}}>
+                <button
+                    onClick={clearAllFilters}
+                    disabled={!filtersActive}
+                    style={{
+                        padding: "6px 12px",
+                        background: filtersActive ? "#e5e7eb" : "#f3f4f6",
+                        color: filtersActive ? "#111" : "#999",
+                        border: "1px solid #ccc",
+                        borderRadius: "4px",
+                        cursor: filtersActive ? "pointer" : "not-allowed",
+                        marginRight: "1rem",
+                    }}
+                >
+                    Clear All Filters
+                </button>
+
+                {filtersActive && (
+                    <span style={{fontSize: "0.9rem", color: "#555"}}>
+                    Filters active:
+                        {filters.weekday !== "" && ` Weekday=${WEEKDAYS[Number(filters.weekday)]}`}
+                        {filters.dayOfMonth !== "" && ` Day=${filters.dayOfMonth}`}
+                        {filters.ball !== "" && ` Ball=${filters.ball}`}
+                  </span>
+                )}
+            </div>
+
             <div style={{margin: "1rem 0"}}>
                 <button onClick={() => setShowBonus(false)} disabled={!showBonus}>
                     Main Balls
@@ -78,8 +116,7 @@ export default function Analytics() {
                 title={showBonus ? "Bonus Ball Frequency" : "Main Ball Frequency"}
             />
 
-            <AnalyticsDashboard summary={analytics.summary} />
-
+            <AnalyticsDashboard  summary={data.summary}/>
         </div>
     );
 }

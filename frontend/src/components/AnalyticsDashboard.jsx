@@ -1,3 +1,9 @@
+import HottestMain from "./HottestMain";
+import HottestBonus from "./HottestBonus";
+import OverdueMain from "./OverdueMain";
+import OverdueBonus from "./OverdueBonus"
+import RecentDraws from "./RecentDraws";
+
 export default function AnalyticsDashboard({ summary }) {
   if (!summary) return null;
 

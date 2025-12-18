@@ -1,11 +1,14 @@
 export default function BallSelector({ data, value, onChange }) {
-  if (!data || !data.weekday) return null;
+  if (!data || !data.weekday_main) return null;
 
   // Pick any weekday (they all have the same keys)
-  const firstWeekday = Object.keys(data.weekday)[0];
-  const ballKeys = Object.keys(data.weekday[firstWeekday]);
-  const maxBall = Math.max(...ballKeys.map(Number));
+  const firstWeekday = Object.keys(data.weekday_main)[0];
+  if (!firstWeekday) return null;
 
+  const ballKeys = Object.keys(data.weekday_main[firstWeekday]);
+  if (ballKeys.length === 0) return null;
+
+  const maxBall = Math.max(...ballKeys.map(Number));
   const balls = Array.from({ length: maxBall }, (_, i) => i + 1);
 
   return (

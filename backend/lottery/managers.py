@@ -12,7 +12,7 @@ class DrawAnalyticsQuerySet(models.QuerySet):
         Expects the model to define a BALL_RANGE attribute.
         """
         ball_range = getattr(self.model, ball_range, None)
-        if ball_range is "":
+        if ball_range == "":
             return []
         return ball_range
 
